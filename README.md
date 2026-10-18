@@ -7,7 +7,7 @@ en `trabajo/feed.json` y estas herramientas lo revisan, lo **cifran** en
 `feed.enc` y, si toca, mandan un aviso al iPhone. La app descarga `feed.enc` y
 lo abre con la misma clave.
 
-`feed.enc` es lo único que se publica, y sin la clave no se puede leer.
+`feed.enc` y `historial.enc` es lo único que se publica, y sin la clave no se puede leer.
 
 ## Herramientas
 
@@ -18,6 +18,8 @@ Solo usan lo que trae Node de serie (18 o más).
 | `node herramientas/leer.mjs` | Enseña el radar publicado la última vez, descifrado |
 | `node herramientas/publicar.mjs --probar` | Revisa el borrador sin escribir ni avisar |
 | `node herramientas/publicar.mjs` | Revisa, cifra, escribe `feed.enc` y avisa si toca |
+| `node herramientas/historial.mjs ver` | Cuánto se movió cada inversión en sus resultados y en los días de la Fed |
+| `node herramientas/historial.mjs actualizar` | Lo vuelve a calcular con precios reales (necesita red) |
 | `node herramientas/probar.mjs` | Pruebas de las herramientas (sin red ni claves) |
 
 ## Variables de entorno

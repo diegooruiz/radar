@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import { cifrar, descifrar, ahoraEnMadrid } from './comun.mjs';
 import { validar } from './validar.mjs';
 import { decidir, firmar } from './aviso.mjs';
+import { reaccion, resumen, diaNormal } from './historial.mjs';
 
 if (process.argv.includes('--vector')) {
   const clave = crypto.randomBytes(32);
@@ -149,6 +150,81 @@ prueba('la firma para Apple se verifica con la clave pública', () => {
   assert.equal(JSON.parse(Buffer.from(datos, 'base64url')).iss, 'ABCDE12345');
   assert.ok(crypto.verify('sha256', Buffer.from(`${cabecera}.${datos}`),
     { key: par.publicKey, dsaEncoding: 'ieee-p1363' }, Buffer.from(firma, 'base64url')));
+});
+
+// ── Cómo puede afectar ──────────────────────────────────────────────────────
+
+const impacto = (cambios = {}) => ({
+  basis: 'historial', tag: '±7,4 %', text: 'Media de sus últimos 8 resultados.',
+  sources: [{ name: 'Yahoo Finance', url: 'https://finance.yahoo.com/quote/META/history/' }], ...cambios,
+});
+
+prueba('un impacto con base, cifra y fuente pasa', () => {
+  const { feed } = validar(borrador([noticia({ impact: [impacto()] })]), ahora);
+  assert.equal(feed.items[0].impact.length, 1);
+});
+
+prueba('un impacto sin fuente, sin base conocida o sin cifra se cae (la noticia no)', () => {
+  const { feed, avisos } = validar(borrador([noticia({ impact: [
+    impacto({ sources: [] }), impacto({ basis: 'intuicion' }), impacto({ tag: '' }),
+  ] })]), ahora);
+  assert.equal(feed.items.length, 1);
+  assert.equal(feed.items[0].impact.length, 0);
+  assert.equal(avisos.length, 3);
+});
+
+prueba('la reacción del mercado necesita cifra y frase', () => {
+  const { feed } = validar(borrador([
+    noticia({ id: 'a', reaction: { tag: '−15 %', text: 'Cayó un 15 % ese día.' } }),
+    noticia({ id: 'b', reaction: { tag: '−15 %' } }),
+  ]), ahora);
+  assert.deepEqual(feed.items.find((n) => n.id === 'a').reaction, { tag: '−15 %', text: 'Cayó un 15 % ese día.' });
+  assert.equal(feed.items.find((n) => n.id === 'b').reaction, undefined);
+});
+
+prueba('las fechas de la agenda también llevan impacto y fuentes', () => {
+  const { feed } = validar(borrador([noticia()], {
+    agenda: [{ date: '2026-10-21', title: 'Meta presenta resultados', impact: [impacto()],
+               sources: [{ name: 'Meta', url: 'https://investor.atmeta.com' }] }],
+  }), ahora);
+  assert.equal(feed.agenda[0].impact.length, 1);
+  assert.equal(feed.agenda[0].sources.length, 1);
+});
+
+// ── Historial ───────────────────────────────────────────────────────────────
+
+const barras = [
+  { fecha: '2026-07-28', cierre: 100 }, { fecha: '2026-07-29', cierre: 100 },
+  { fecha: '2026-07-30', cierre: 110 }, { fecha: '2026-07-31', cierre: 99 },
+];
+
+prueba('resultados tras el cierre: cuenta el día siguiente', () => {
+  assert.deepEqual(reaccion(barras, '2026-07-29', 'despues'), { fecha: '2026-07-29', dia: '2026-07-30', movimiento: 10 });
+});
+
+prueba('resultados antes de abrir: cuenta ese mismo día', () => {
+  assert.deepEqual(reaccion(barras, '2026-07-31', 'antes'), { fecha: '2026-07-31', dia: '2026-07-31', movimiento: -10 });
+});
+
+prueba('un evento en fin de semana reacciona la siguiente sesión', () => {
+  const b = [{ fecha: '2026-10-16', cierre: 100 }, { fecha: '2026-10-19', cierre: 95 }];
+  assert.equal(reaccion(b, '2026-10-17', 'antes').dia, '2026-10-19');
+  assert.equal(reaccion(b, '2026-10-17', 'antes').movimiento, -5);
+});
+
+prueba('sin día anterior o sin días después, no hay reacción', () => {
+  assert.equal(reaccion(barras, '2026-07-28', 'antes'), null);
+  assert.equal(reaccion(barras, '2026-07-31', 'despues'), null);
+});
+
+prueba('el resumen cuenta subidas, bajadas y la media sin signo', () => {
+  assert.deepEqual(resumen([{ movimiento: 10 }, { movimiento: -10 }, { movimiento: 4 }]),
+    { veces: 3, mediaAbsoluta: 8, subidas: 2, bajadas: 1, mayorSubida: 10, mayorBajada: -10 });
+});
+
+prueba('el día normal es la media de los movimientos diarios sin signo', () => {
+  const b = Array.from({ length: 21 }, (_, i) => ({ fecha: `d${i}`, cierre: i % 2 ? 102 : 100 }));
+  assert.equal(diaNormal(b, 20), 2);
 });
 
 console.log(`\n${pasadas} pruebas pasadas.`);

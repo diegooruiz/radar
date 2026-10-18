@@ -12,6 +12,8 @@ export const ANTERIOR = 'trabajo/anterior.json';
 export const EFECTOS = ['favorable', 'desfavorable', 'mixto', 'neutral'];
 export const CERTEZAS = ['confirmado', 'fuentes', 'prevision', 'rumor'];
 export const CLASES = ['accion', 'cripto', 'protocolo'];
+/// En qué se apoya un «cómo puede afectar». Nunca en la opinión del agente.
+export const BASES = ['historial', 'opciones', 'analistas'];
 
 export const MAX_NOTICIAS = 40;
 // Una semana: lo de antes ya no es noticia, y la app tampoco lo enseña.

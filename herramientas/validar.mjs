@@ -3,11 +3,35 @@
 // Lo que no cumple se descarta con un aviso, en vez de tumbar la publicación:
 // una noticia mal escrita no debe dejarte sin las otras diez.
 
-import { EFECTOS, CERTEZAS, CLASES, MAX_NOTICIAS, MAX_DIAS, ahoraEnMadrid } from './comun.mjs';
+import { EFECTOS, CERTEZAS, CLASES, BASES, MAX_NOTICIAS, MAX_DIAS, ahoraEnMadrid } from './comun.mjs';
 
 const texto = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const esFecha = (v) => typeof v === 'string' && !Number.isNaN(Date.parse(v));
 const esDia = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+const limpiarFuentes = (lista) => (Array.isArray(lista) ? lista : [])
+  .map((f) => ({ name: texto(f?.name, 60), url: texto(f?.url, 500) }))
+  .filter((f) => f.name && /^https:\/\//.test(f.url));
+
+/// «Cómo puede afectar»: cada estimación dice en qué se apoya y de dónde sale.
+/// Sin base reconocida o sin fuente, no se publica: es la parte del radar donde
+/// más fácil sería colar una cifra inventada.
+function limpiarImpacto(lista, donde, avisa) {
+  const resultado = [];
+  for (const e of Array.isArray(lista) ? lista : []) {
+    const limpio = {
+      basis: e?.basis,
+      tag: texto(e?.tag, 16),
+      text: texto(e?.text, 320),
+      sources: limpiarFuentes(e?.sources),
+    };
+    if (!BASES.includes(limpio.basis)) { avisa(`${donde}: impacto con base «${limpio.basis}» no válida.`); continue; }
+    if (!limpio.tag || !limpio.text) { avisa(`${donde}: impacto sin cifra o sin explicación.`); continue; }
+    if (limpio.sources.length === 0) { avisa(`${donde}: impacto sin fuente.`); continue; }
+    resultado.push(limpio);
+  }
+  return resultado.slice(0, 3);
+}
 
 export function validar(borrador, ahora = new Date()) {
   const avisos = [];
@@ -33,9 +57,7 @@ export function validar(borrador, ahora = new Date()) {
   const noticias = [];
   for (const [i, n] of (Array.isArray(borrador.items) ? borrador.items : []).entries()) {
     const donde = `noticia ${i + 1} («${texto(n?.title, 50)}»)`;
-    const fuentes = (Array.isArray(n?.sources) ? n.sources : [])
-      .map((f) => ({ name: texto(f?.name, 40), url: texto(f?.url, 500) }))
-      .filter((f) => f.name && /^https:\/\//.test(f.url));
+    const fuentes = limpiarFuentes(n?.sources);
     const activosNoticia = (Array.isArray(n?.assets) ? n.assets : [])
       .map((a) => String(a).toUpperCase())
       .filter((a) => ids.has(a));
@@ -51,7 +73,13 @@ export function validar(borrador, ahora = new Date()) {
       importance: Number(n?.importance),
       publishedAt: n?.publishedAt,
       sources: fuentes,
+      impact: limpiarImpacto(n?.impact, donde, avisa),
     };
+    // Lo que hizo el mercado con la noticia: un hecho, con una cifra corta
+    // ("−15 %") y una frase. Se apoya en las fuentes de la propia noticia.
+    const tagReaccion = texto(n?.reaction?.tag, 16);
+    const textoReaccion = texto(n?.reaction?.text, 200);
+    if (tagReaccion && textoReaccion) limpia.reaction = { tag: tagReaccion, text: textoReaccion };
 
     if (!limpia.id || !limpia.title || !limpia.summary) { avisa(`${donde}: le falta id, título o resumen.`); continue; }
     if (vistas.has(limpia.id)) { avisa(`${donde}: id repetido.`); continue; }
@@ -82,6 +110,8 @@ export function validar(borrador, ahora = new Date()) {
       time: /^([01]\d|2[0-3]):[0-5]\d$/.test(e?.time ?? '') ? e.time : '',
       title: texto(e?.title, 120),
       note: texto(e?.note, 200),
+      sources: limpiarFuentes(e?.sources),
+      impact: limpiarImpacto(e?.impact, `fecha «${texto(e?.title, 40)}»`, avisa),
       assets: (Array.isArray(e?.assets) ? e.assets : []).map((a) => String(a).toUpperCase()).filter((a) => ids.has(a)),
     }))
     .filter((e) => esDia(e.date) && e.title && e.date >= hoy)
