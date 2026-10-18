@@ -14,7 +14,8 @@ export const CERTEZAS = ['confirmado', 'fuentes', 'prevision', 'rumor'];
 export const CLASES = ['accion', 'cripto', 'protocolo'];
 
 export const MAX_NOTICIAS = 40;
-export const MAX_DIAS = 14;
+// Una semana: lo de antes ya no es noticia, y la app tampoco lo enseña.
+export const MAX_DIAS = 7;
 export const MAX_AVISOS_DIA = 3;
 
 export function fallo(mensaje) {

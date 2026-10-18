@@ -74,9 +74,12 @@ prueba('valores fuera de lo permitido se descartan', () => {
   assert.equal(feed.items.length, 0);
 });
 
-prueba('lo que tiene más de 14 días se va', () => {
-  const { feed } = validar(borrador([noticia({ publishedAt: '2026-09-01T00:00:00Z' })]), ahora);
-  assert.equal(feed.items.length, 0);
+prueba('lo que tiene más de una semana se va', () => {
+  const { feed } = validar(borrador([
+    noticia({ id: 'seis-dias', publishedAt: '2026-09-20T12:00:00Z' }),
+    noticia({ id: 'ocho-dias', publishedAt: '2026-09-18T09:00:00Z' }),
+  ]), ahora);
+  assert.deepEqual(feed.items.map((n) => n.id), ['seis-dias']);
 });
 
 prueba('ids repetidos: se queda la primera', () => {
@@ -102,6 +105,17 @@ prueba('la agenda pierde lo pasado y se ordena', () => {
     ],
   }), ahora);
   assert.deepEqual(feed.agenda.map((e) => e.title), ['Hoy', 'Fed']);
+});
+
+prueba('la hora de la agenda se guarda solo si es válida, y ordena el día', () => {
+  const { feed } = validar(borrador([noticia()], {
+    agenda: [
+      { date: '2026-10-28', time: '19:00', title: 'Fed' },
+      { date: '2026-10-28', time: '07:30', title: 'Advantest' },
+      { date: '2026-10-28', time: 'por la tarde', title: 'Sin hora' },
+    ],
+  }), ahora);
+  assert.deepEqual(feed.agenda.map((e) => [e.title, e.time]), [['Sin hora', ''], ['Advantest', '07:30'], ['Fed', '19:00']]);
 });
 
 prueba('la hora de Madrid cambia con el horario de invierno', () => {

@@ -78,6 +78,8 @@ export function validar(borrador, ahora = new Date()) {
   const agenda = (Array.isArray(borrador.agenda) ? borrador.agenda : [])
     .map((e) => ({
       date: e?.date,
+      // Hora en España, "HH:mm". Opcional: no todo tiene hora conocida.
+      time: /^([01]\d|2[0-3]):[0-5]\d$/.test(e?.time ?? '') ? e.time : '',
       title: texto(e?.title, 120),
       note: texto(e?.note, 200),
       assets: (Array.isArray(e?.assets) ? e.assets : []).map((a) => String(a).toUpperCase()).filter((a) => ids.has(a)),
@@ -85,8 +87,8 @@ export function validar(borrador, ahora = new Date()) {
     .filter((e) => esDia(e.date) && e.title && e.date >= hoy)
     // La app identifica cada fecha por día y título: no puede haber dos iguales.
     .filter((e, i, todas) => todas.findIndex((o) => o.date === e.date && o.title === e.title) === i)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 12);
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .slice(0, 20);
 
   // El aviso que propone el agente. Que se mande o no lo decide publicar.mjs.
   let aviso = null;
